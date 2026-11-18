@@ -63,24 +63,34 @@ async function withTimeout(ms, fn) {
   }
 }
 
+// 파일 앞부분으로 사진 형식 알아내기 (공고 사진 서버는 형식을 application/octet-stream으로 보내요)
+function sniffMime(b) {
+  if (b[0] === 0xff && b[1] === 0xd8) return 'image/jpeg';
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'image/png';
+  if (b[0] === 0x52 && b[1] === 0x49 && b[8] === 0x57 && b[9] === 0x45) return 'image/webp';
+  if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return 'image/gif';
+  return null;
+}
+
 // { path } = 우리 Storage 사진, { url } = 공고 사진 주소 → { mime, b64 }
 export async function loadImage(db, src) {
   if (!src) return null;
   let bytes;
-  let mime = 'image/jpeg';
+  let declared = '';
   if (src.path) {
     const { data, error } = await db.storage.from('photos').download(src.path);
     if (error || !data) return null;
     bytes = new Uint8Array(await data.arrayBuffer());
-    mime = data.type || mime;
+    declared = data.type || '';
   } else if (src.url) {
-    const res = await withTimeout(8000, (signal) => fetch(src.url, { signal })).catch(() => null);
+    const res = await withTimeout(10000, (signal) => fetch(src.url, { signal })).catch(() => null);
     if (!res || !res.ok) return null;
-    mime = (res.headers.get('content-type') || mime).split(';')[0].trim();
-    if (!mime.startsWith('image/')) return null;
+    declared = (res.headers.get('content-type') || '').split(';')[0].trim();
     bytes = new Uint8Array(await res.arrayBuffer());
   }
-  if (!bytes || !bytes.length || bytes.length > 7 * 1024 * 1024) return null;
+  if (!bytes || bytes.length < 16 || bytes.length > 7 * 1024 * 1024) return null;
+  const mime = sniffMime(bytes) || (declared.startsWith('image/') ? declared : null);
+  if (!mime) return null;
   return { mime, b64: encodeBase64(bytes) };
 }
 

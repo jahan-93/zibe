@@ -14,7 +14,9 @@ Deno.serve(async (req) => {
   try {
     const u = new URL(req.url);
     const days = Math.min(60, Number(u.searchParams.get('days') || 30));
-    const key = Deno.env.get('DATA_GO_KR_KEY');
+    // 공공데이터포털 키: 함수 환경변수 DATA_GO_KR_KEY 또는 app_secrets.data_go_kr_key
+    const { data: dk } = await db.from('app_secrets').select('value').eq('name', 'data_go_kr_key').maybeSingle();
+    const key = Deno.env.get('DATA_GO_KR_KEY') || dk?.value;
     let synced = 0;
     if (key && u.searchParams.get('skip_sync') !== '1') {
       const rows = await fetchRecentNotices(key, days, (m: string) => log.push(m));
@@ -24,7 +26,7 @@ Deno.serve(async (req) => {
       }
       synced = rows.length;
     } else {
-      log.push('DATA_GO_KR_KEY 없음 또는 skip_sync=1 → 공고 받기 건너뜀');
+      log.push('공공데이터 키 없음 또는 skip_sync=1 → 공고 받기 건너뜀');
     }
 
     const { data: reports } = await db.from('lost_reports').select('*').eq('status', 'searching').limit(1000);
