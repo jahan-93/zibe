@@ -61,7 +61,8 @@ Deno.serve(async (req) => {
         .insert({ id, access_token: token, ...r, photo_path })
         .select('*').single();
       if (error) throw error;
-      const stats = await matchReport(db, report, { keep: 10, aiMax: 5 });
+      // 무료 AI 등급은 하루 호출 수가 적어서 등록 한 번에 사진 대조는 상위 3마리까지
+      const stats = await matchReport(db, report, { keep: 10, aiMax: 3 });
       const view = await reportView(db, report);
       return json({ ...view, token, stats });
     }

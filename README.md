@@ -9,11 +9,12 @@
 ## 찾는 방식 (2단계)
 
 1. **규칙 거르기·점수** (`supabase/functions/_shared/core.js`): 종·날짜·지역(이웃 시도 포함)으로 말이 안 되는 후보를 빼고, 털색·품종·성별·장소·날짜·특징 낱말로 점수와 닮은 점/다른 점을 만들어요.
-2. **AI 사진 대조** (`supabase/functions/_shared/ai.js`): 사진이 있는 상위 후보(등록 시 5마리, 매일 3마리)만 Gemini에 내 사진과 후보 사진을 함께 보내 같은 개체일 가능성(0~100)과 사진 근거를 받아요.
+2. **AI 사진 대조** (`supabase/functions/_shared/ai.js`): 사진이 있는 상위 후보(등록 시 3마리, 매일 2마리)만 비전 모델에 내 사진과 후보 사진을 함께 보내 같은 개체일 가능성(0~100)과 사진 근거를 받아요.
+   - 제공자: OpenRouter 무료 비전 모델(기본 `nvidia/nemotron-3.5-super-vl:free`, 막히면 Gemma 4로 자동 전환) 또는 Gemini. `app_secrets.ai_provider`로 바꿔요.
    - 최종 점수 = 규칙 40% + 사진 60%. `matches`에 `rule_score`, `photo_score`, `photo_note`, `ai_model`을 따로 남겨 평가에 써요.
    - 품종이 같아 닮은 것만으로는 점수를 높게 주지 않도록 프롬프트에서 개체 고유 특징(무늬 위치, 귀 모양, 목줄 등)을 근거로 하게 했어요.
    - AI 호출이 실패해도 등록은 막지 않고 규칙 점수로 보여 줘요.
-   - Gemini 키·모델은 DB `app_secrets`(`gemini_api_key`, `gemini_model`)에 있어요. 브라우저에서는 읽을 수 없어요.
+   - 키·모델은 DB `app_secrets`(`openrouter_api_key`, `openrouter_models`, `gemini_api_key`, `gemini_model`)에 있어요. 브라우저에서는 읽을 수 없어요.
 
 ## 실행
 

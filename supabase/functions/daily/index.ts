@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
     let aiCalls = 0;
     for (const r of reports || []) {
       const since = r.last_checked_at ?? r.created_at;
-      const st = await matchReport(db, r, { sinceIso: since < startedAt ? since : startedAt, keep: 5, minScore: 45, aiMax: 3 });
+      const st = await matchReport(db, r, { sinceIso: since < startedAt ? since : startedAt, keep: 5, minScore: 45, aiMax: 2 });
       added += st.added;
       aiCalls += st.ai?.tried ?? 0;
     }
