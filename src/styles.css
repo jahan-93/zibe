@@ -948,6 +948,49 @@ input[type='date']::-webkit-date-and-time-value {
   background: #fdf0ec;
   color: var(--danger);
 }
+.reason--photo {
+  font-weight: 600;
+}
+.ai-box {
+  padding: 12px 14px;
+  border: 1px solid #d9e4f1;
+  border-radius: 12px;
+  background: #f2f7fc;
+}
+.ai-box__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ai-box__tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #3b6ea8;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.ai-box__scores {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.ai-box__scores b {
+  color: var(--ink);
+}
+.ai-box__note {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: #2f4a66;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 .match__actions {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -144,7 +144,7 @@ export function LostPage() {
           <button type="submit" className="btn btn--primary" disabled={busy}>
             {busy ? (
               <>
-                <span className="spinner" aria-hidden="true" /> 구조 공고와 비교하는 중…
+                <span className="spinner" aria-hidden="true" /> 공고와 사진을 비교하는 중… (최대 30초)
               </>
             ) : (
               '닮은 아이 찾기'

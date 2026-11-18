@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getReport, type ReportView } from '../api';
-import { Callout, RuleNotice, ScamWarning } from '../components/Callouts';
+import { AiNotice, Callout, RuleNotice, ScamWarning } from '../components/Callouts';
 import { BackLink } from '../components/Chrome';
 import { MatchCard } from '../components/MatchCard';
 import { PetArt } from '../components/PetArt';
@@ -102,7 +102,7 @@ export function ReportPage({ id, token }: { id: string; token: string }) {
   const r = view.report;
   const ms = view.matches;
   const newCount = fresh ? 0 : ms.filter((m) => m.is_new).length;
-  const ruleBased = ms.length === 0 || ms.some((m) => m.method === 'rule');
+  const aiCount = ms.filter((m) => m.method === 'ai').length;
   const title = ms.length === 0 ? '아직 후보가 없어요' : fresh ? `닮은 아이 ${ms.length}마리를 찾았어요` : '내 등록';
 
   return (
@@ -148,7 +148,7 @@ export function ReportPage({ id, token }: { id: string; token: string }) {
         </p>
       )}
 
-      {ruleBased && <RuleNotice />}
+      {aiCount > 0 ? <AiNotice /> : <RuleNotice />}
 
       {ms.length > 0 ? (
         <div className="matches">

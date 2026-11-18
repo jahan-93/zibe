@@ -29,7 +29,16 @@ export function Callout({
 export function RuleNotice() {
   return (
     <Callout tone="info">
-      지금은 공고에 적힌 정보(털색·품종·성별·장소·날짜·특징)로 순위를 매겨요. 사진끼리 비교하는 AI는 곧 연결돼요.
+      공고에 적힌 정보(털색·품종·성별·장소·날짜·특징)로 순위를 매겼어요. 사진이 있는 후보는 AI가 사진끼리도 비교해요.
+    </Callout>
+  );
+}
+
+export function AiNotice() {
+  return (
+    <Callout tone="info" icon="📷">
+      사진이 있는 후보는 <b>AI가 내 사진과 직접 비교</b>했어요. 같은 품종은 서로 닮아 보일 수 있으니, 점수가 높아도
+      보호소에서 꼭 직접 확인해 주세요.
     </Callout>
   );
 }

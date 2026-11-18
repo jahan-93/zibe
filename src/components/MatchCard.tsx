@@ -18,12 +18,12 @@ function DdayBox({ days }: { days: number | null | undefined }) {
   );
 }
 
-function ScoreBar({ score }: { score: number }) {
+function ScoreBar({ score, label = '정보 일치' }: { score: number; label?: string }) {
   const pct = Math.max(4, Math.min(100, score));
   const tier = score >= 70 ? 'hi' : score >= 45 ? 'mid' : 'lo';
   return (
     <div className="score">
-      <span className="score__label">정보 일치</span>
+      <span className="score__label">{label}</span>
       <div
         className="score__track"
         role="meter"
@@ -36,6 +36,18 @@ function ScoreBar({ score }: { score: number }) {
       </div>
       <b className="score__num">{score}</b>
     </div>
+  );
+}
+
+// '사진: 왼쪽 귀 얼룩'처럼 AI가 사진에서 찾은 근거는 📷로 구분해서 보여 줘요.
+function Reason({ kind, text }: { kind: 'same' | 'diff'; text: string }) {
+  const fromPhoto = text.startsWith('사진: ');
+  const body = fromPhoto ? text.slice(4) : text;
+  return (
+    <li className={`reason reason--${kind} ${fromPhoto ? 'reason--photo' : ''}`}>
+      <span aria-hidden="true">{fromPhoto ? '📷' : kind === 'same' ? '✓' : '✕'}</span>
+      {fromPhoto && <span className="sr-only">사진에서 {kind === 'same' ? '닮은 점' : '다른 점'}:</span>} {body}
+    </li>
   );
 }
 
@@ -61,6 +73,7 @@ export function MatchCard({
 }) {
   const [open, setOpen] = useState(!!defaultOpen);
   const isSighting = m.kind === 'sighting';
+  const isAi = m.method === 'ai' && m.photo_score != null;
   const title = isSighting
     ? joinDot(['목격 제보', m.color || '색 정보 없음'])
     : joinDot([m.title || '품종 모름', sexLabel(m.sex), m.color]);
@@ -105,19 +118,29 @@ export function MatchCard({
           {!isSighting && <DdayBox days={m.days_left} />}
         </div>
 
-        <ScoreBar score={m.score} />
+        <ScoreBar score={m.score} label={isAi ? '종합 일치' : '정보 일치'} />
+
+        {isAi && (
+          <div className="ai-box">
+            <div className="ai-box__head">
+              <span className="ai-box__tag">AI 사진 비교</span>
+              <span className="ai-box__scores">
+                사진 <b>{m.photo_score}</b>
+                <span aria-hidden="true"> · </span>
+                정보 <b>{m.rule_score}</b>
+              </span>
+            </div>
+            {m.photo_note && <p className="ai-box__note">{m.photo_note}</p>}
+          </div>
+        )}
 
         {(m.same.length > 0 || m.diff.length > 0) && (
           <ul className="reasons" aria-label="닮은 점과 다른 점">
             {m.same.map((s) => (
-              <li key={`s-${s}`} className="reason reason--same">
-                <span aria-hidden="true">✓</span> {reword(s)}
-              </li>
+              <Reason key={`s-${s}`} kind="same" text={reword(s)} />
             ))}
             {m.diff.map((s) => (
-              <li key={`d-${s}`} className="reason reason--diff">
-                <span aria-hidden="true">✕</span> {reword(s)}
-              </li>
+              <Reason key={`d-${s}`} kind="diff" text={reword(s)} />
             ))}
           </ul>
         )}

@@ -33,6 +33,13 @@ export interface Match {
   notice_edt?: string | null;
   days_left?: number | null;
   state?: string | null;
+  /** 규칙(털색·품종·성별·장소·날짜·특징) 점수 */
+  rule_score?: number | null;
+  /** AI 사진 대조 점수 (method === 'ai'일 때만) */
+  photo_score?: number | null;
+  /** AI가 보호자에게 남긴 한 문장 */
+  photo_note?: string | null;
+  ai_model?: string | null;
 }
 
 export interface Report {
