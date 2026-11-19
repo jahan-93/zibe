@@ -1,25 +1,21 @@
 import { useRef, useState } from 'react';
-import type { Species } from '../api';
-import { fileToJpeg, svgToJpeg } from '../lib/image';
-import { ART_BACKGROUNDS, petSvg } from './PetArt';
+import { fileToJpeg } from '../lib/image';
 
 export interface Photo {
+  /** data:image/jpeg;base64,... 또는 (체험) 공고 사진 주소 */
   dataUrl: string;
-  isExample: boolean;
+  /** 사진 위에 작게 붙는 설명 (체험 사진 등) */
+  caption?: string;
 }
 
 export function PhotoPicker({
   value,
   onChange,
-  species,
-  color,
   hint = '얼굴과 털 무늬가 잘 보이는 사진이 좋아요',
   invalid,
 }: {
   value: Photo | null;
   onChange: (p: Photo | null) => void;
-  species: Species;
-  color?: string;
   hint?: string;
   invalid?: boolean;
 }) {
@@ -34,24 +30,12 @@ export function PhotoPicker({
     setBusy(true);
     setError(null);
     try {
-      onChange({ dataUrl: await fileToJpeg(file), isExample: false });
+      onChange({ dataUrl: await fileToJpeg(file) });
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(false);
       if (input.current) input.current.value = '';
-    }
-  };
-
-  const useExample = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      onChange({ dataUrl: await svgToJpeg(petSvg(species, color, ART_BACKGROUNDS[0])), isExample: true });
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
     }
   };
 
@@ -68,11 +52,11 @@ export function PhotoPicker({
         <div className="photo__frame">
           <div className="photo__preview">
             <img src={value.dataUrl} alt="고른 사진" />
-            {value.isExample && <span className="pet-art__label">사진 대신 그림</span>}
+            {value.caption && <span className="pet-art__label">{value.caption}</span>}
           </div>
           <div className="photo__actions">
             <button type="button" className="btn-text" onClick={pick}>
-              다른 사진 고르기
+              {value.caption ? '내 사진으로 바꾸기' : '다른 사진 고르기'}
             </button>
             <button type="button" className="btn-text is-muted" onClick={() => onChange(null)}>
               지우기
@@ -89,11 +73,6 @@ export function PhotoPicker({
         </button>
       )}
       {error && <p className="field__error">{error}</p>}
-      {!value && (
-        <button type="button" className="link-accent" onClick={useExample} disabled={busy}>
-          사진이 없으면 예시 사진으로 해 보기
-        </button>
-      )}
     </div>
   );
 }

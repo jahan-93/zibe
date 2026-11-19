@@ -29,8 +29,8 @@ export function App() {
       <Header />
       <main className="page" key={key}>
         {route.name === 'home' && <HomePage />}
-        {route.name === 'lost' && <LostPage />}
-        {route.name === 'seen' && <SightingPage />}
+        {route.name === 'lost' && <LostPage demoStart={route.demo} />}
+        {route.name === 'seen' && <SightingPage demoStart={route.demo} />}
         {route.name === 'thanks' && <ThanksPage />}
         {route.name === 'report' && <ReportPage id={route.id} token={route.token} />}
       </main>

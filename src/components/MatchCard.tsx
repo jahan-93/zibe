@@ -64,12 +64,18 @@ export function MatchCard({
   species,
   showNew,
   defaultOpen,
+  isAnswer = false,
+  demo = false,
 }: {
   m: Match;
   rank: number;
   species: Species;
   showNew: boolean;
   defaultOpen?: boolean;
+  /** 체험 정답 (등록 사진의 주인공이 실린 공고) */
+  isAnswer?: boolean;
+  /** 체험 등록: 실제 보호소로 전화가 걸리지 않게 막아요 */
+  demo?: boolean;
 }) {
   const [open, setOpen] = useState(!!defaultOpen);
   const isSighting = m.kind === 'sighting';
@@ -89,11 +95,12 @@ export function MatchCard({
   };
 
   return (
-    <article className={`match ${m.score < LOW_SCORE ? 'is-low' : ''}`}>
+    <article className={`match ${m.score < LOW_SCORE ? 'is-low' : ''} ${isAnswer ? 'is-answer' : ''}`}>
       <div className="match__photo">
         <Photo m={m} species={species} index={rank - 1} />
         <span className="match__rank">{rank}위</span>
         <div className="match__badges">
+          {isAnswer && <span className="badge badge--answer">🎯 체험 정답</span>}
           {showNew && m.is_new && <span className="badge badge--new">새로 올라옴</span>}
           {isSighting && <span className="badge badge--sighting">목격 제보</span>}
           {m.score < LOW_SCORE && <span className="badge badge--low">가능성 낮음</span>}
@@ -118,7 +125,8 @@ export function MatchCard({
           {!isSighting && <DdayBox days={m.days_left} />}
         </div>
 
-        <ScoreBar score={m.score} label={isAi ? '종합 일치' : '정보 일치'} />
+        {/* 사진 비교를 한 후보는 종합 점수, 못 한 후보는 정보 점수를 보여 줘요 (줄 세우기는 둘 다 같은 잣대) */}
+        <ScoreBar score={isAi ? m.score : (m.rule_score ?? m.score)} label={isAi ? '종합 일치' : '정보 일치'} />
 
         {isAi && (
           <div className="ai-box">
@@ -146,7 +154,17 @@ export function MatchCard({
         )}
 
         <div className={`match__actions ${isSighting || !m.care_tel ? 'is-single' : ''}`}>
-          {!isSighting && m.care_tel && (
+          {!isSighting && m.care_tel && demo && (
+            // 체험 중에는 전화 링크 자체를 만들지 않아요 (길게 눌러도 걸리지 않게)
+            <button
+              type="button"
+              className="btn btn--primary btn--sm"
+              onClick={() => toast('체험 중에는 실제 보호소로 전화가 걸리지 않게 막아 뒀어요.')}
+            >
+              <span aria-hidden="true">📞</span> 보호소 전화 (체험 중 막힘)
+            </button>
+          )}
+          {!isSighting && m.care_tel && !demo && (
             <a className="btn btn--primary btn--sm" href={`tel:${m.care_tel.replace(/[^\d+]/g, '')}`} onClick={callShelter}>
               <span aria-hidden="true">📞</span> 보호소 전화
             </a>
@@ -200,8 +218,8 @@ export function MatchCard({
                     <dt>보호소</dt>
                     <dd>
                       {m.care_name}
-                      {m.care_tel && <br />}
-                      {m.care_tel}
+                      {m.care_tel && !demo && <br />}
+                      {!demo && m.care_tel}
                       {m.care_addr && <br />}
                       {m.care_addr}
                     </dd>

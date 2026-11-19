@@ -72,8 +72,8 @@ function sniffMime(b) {
   return null;
 }
 
-// { path } = 우리 Storage 사진, { url } = 공고 사진 주소 → { mime, b64 }
-export async function loadImage(db, src) {
+// { path } = 우리 Storage 사진, { url } = 공고 사진 주소 → { bytes, mime } (사진이 아니면 null)
+export async function fetchImage(db, src) {
   if (!src) return null;
   let bytes;
   let declared = '';
@@ -91,7 +91,13 @@ export async function loadImage(db, src) {
   if (!bytes || bytes.length < 16 || bytes.length > 7 * 1024 * 1024) return null;
   const mime = sniffMime(bytes) || (declared.startsWith('image/') ? declared : null);
   if (!mime) return null;
-  return { mime, b64: encodeBase64(bytes) };
+  return { bytes, mime };
+}
+
+// AI에 보낼 형태 → { mime, b64 }
+export async function loadImage(db, src) {
+  const img = await fetchImage(db, src);
+  return img ? { mime: img.mime, b64: encodeBase64(img.bytes) } : null;
 }
 
 const short = (arr, n = 3, len = 40) =>
@@ -192,41 +198,101 @@ export async function comparePhotos(cfg, lost, cand, { species } = {}) {
   const { out, model } = cfg.provider === 'openrouter'
     ? await callOpenRouter(cfg, lost, cand, species)
     : await callGemini(cfg, lost, cand, species);
-  const score = Math.max(0, Math.min(100, Math.round(Number(out.same_animal) || 0)));
+  // 점수가 빠졌거나 0~1 소수처럼 엉뚱하면 실패로 처리 (잘못된 값이 저장·재사용되지 않게)
+  const raw = Number(out?.same_animal);
+  if (out?.same_animal == null || !Number.isFinite(raw) || raw < 0 || raw > 100 || (raw > 0 && raw < 1)) {
+    throw new Error(`AI 응답의 점수가 올바르지 않아요: ${String(out?.same_animal).slice(0, 20)}`);
+  }
+  const score = Math.round(raw);
   return { score, same: short(out.same), diff: short(out.diff), note: String(out.note || '').slice(0, 160), model };
 }
 
+// 최종 점수 = 규칙 40% + 사진 60%. 사진 비교를 못 한 후보는 사진 점수를 중간값(50)으로 둬서
+// AI가 본 후보와 안 본 후보가 같은 잣대로 줄 서게 해요.
+export const NEUTRAL_PHOTO = 50;
+export function blendScore(ruleScore, photoScore = NEUTRAL_PHOTO) {
+  return Math.max(0, Math.min(99, Math.round((1 - PHOTO_WEIGHT) * ruleScore + PHOTO_WEIGHT * photoScore)));
+}
+
+const CACHE_DAYS = 7;
+
+function applyAi(row, r) {
+  row.photo_score = r.score;
+  row.photo_note = r.note;
+  row.ai_model = r.model;
+  row.method = 'ai';
+  row.score = blendScore(row.rule_score, r.score);
+  row.same_points = [...r.same.map((s) => `사진: ${s}`), ...row.same_points];
+  row.diff_points = [...r.diff.map((s) => `사진: ${s}`), ...row.diff_points];
+}
+
 // matchReport가 만든 행들 중 사진이 있는 상위 maxCalls개를 AI로 다시 점수 매김 (행을 직접 고쳐요)
-export async function aiRerankRows(db, report, rows, { maxCalls = 3 } = {}) {
-  const stats = { tried: 0, ok: 0, error: null };
+// cachePrefix: 보호자 사진을 가리키는 고정 키(체험 등록이면 'n2:<공고번호>'). 있으면 같은 사진 짝은 ai_cache에서 바로 꺼내요.
+export async function aiRerankRows(db, report, rows, { maxCalls = 3, cachePrefix = null } = {}) {
+  const stats = { tried: 0, ok: 0, cached: 0, error: null };
   if (!report.photo_path) return { ...stats, error: 'no report photo' };
   const targets = rows.filter((r) => r._photo).slice(0, maxCalls);
   if (!targets.length) return stats;
+
+  const keyOf = (row) => (cachePrefix && row._photoKey ? `${cachePrefix}|${row._photoKey}` : null);
+  const keys = targets.map(keyOf).filter(Boolean);
+  const hits = new Map();
+  if (keys.length) {
+    // 오래된 결과는 쓰지 않아요 (공고 사진이 바뀌었을 수 있어서)
+    const fresh = new Date(Date.now() - CACHE_DAYS * 86400000).toISOString();
+    const { data } = await db.from('ai_cache').select('key, result').in('key', keys).gte('created_at', fresh);
+    for (const c of data || []) hits.set(c.key, c.result);
+  }
+  const todo = [];
+  for (const row of targets) {
+    const hit = hits.get(keyOf(row));
+    if (hit && Number.isFinite(Number(hit.score))) {
+      applyAi(row, { ...hit, same: short(hit.same), diff: short(hit.diff) });
+      stats.ok++;
+      stats.cached++;
+    } else {
+      todo.push(row);
+    }
+  }
+  if (!todo.length) return stats;
+
   const cfg = await loadAiConfig(db);
   if (!cfg) return { ...stats, error: 'no api key' };
   const lost = await loadImage(db, { path: report.photo_path });
   if (!lost) return { ...stats, error: 'report photo unreadable' };
 
+  // 같은 사진 짝(같은 캐시 키)은 한 번만 물어보고 결과를 같이 써요
+  const groups = new Map();
+  todo.forEach((row, i) => {
+    const k = keyOf(row) ?? `#${i}`;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(row);
+  });
+
+  const fresh = [];
+  const now = new Date().toISOString();
   await Promise.all(
-    targets.map(async (row) => {
+    [...groups.entries()].map(async ([k, group]) => {
       stats.tried++;
       try {
-        const cand = await loadImage(db, row._photo);
-        if (!cand) return;
+        const cand = await loadImage(db, group[0]._photo);
+        if (!cand) {
+          stats.error = stats.error ?? 'candidate photo unreadable';
+          return;
+        }
         const r = await comparePhotos(cfg, lost, cand, { species: report.species });
-        row.photo_score = r.score;
-        row.photo_note = r.note;
-        row.ai_model = r.model;
-        row.method = 'ai';
-        row.score = Math.max(0, Math.min(99, Math.round((1 - PHOTO_WEIGHT) * row.rule_score + PHOTO_WEIGHT * r.score)));
-        row.same_points = [...r.same.map((s) => `사진: ${s}`), ...row.same_points];
-        row.diff_points = [...r.diff.map((s) => `사진: ${s}`), ...row.diff_points];
-        stats.ok++;
+        for (const row of group) applyAi(row, r);
+        stats.ok += group.length;
+        if (!k.startsWith('#')) fresh.push({ key: k, result: r, created_at: now });
       } catch (e) {
         stats.error = String(e?.message ?? e);
         console.error('AI 사진 비교 실패', stats.error);
       }
     }),
   );
+  if (fresh.length) {
+    const { error } = await db.from('ai_cache').upsert(fresh, { onConflict: 'key' });
+    if (error) console.error('AI 결과 저장 실패', error.message);
+  }
   return stats;
 }

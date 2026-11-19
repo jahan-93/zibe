@@ -29,7 +29,8 @@ Deno.serve(async (req) => {
       log.push('공공데이터 키 없음 또는 skip_sync=1 → 공고 받기 건너뜀');
     }
 
-    const { data: reports } = await db.from('lost_reports').select('*').eq('status', 'searching').limit(1000);
+    // 체험 등록은 매일 다시 찾기에서 빼요 (AI 호출 아끼기)
+    const { data: reports } = await db.from('lost_reports').select('*').eq('status', 'searching').eq('is_demo', false).limit(1000);
     let added = 0;
     let aiCalls = 0;
     for (const r of reports || []) {

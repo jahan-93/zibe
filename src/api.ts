@@ -55,6 +55,29 @@ export interface Report {
   status: 'searching' | 'found' | 'closed';
   last_checked_at: string | null;
   photo: string | null;
+  /** 체험용 등록 (실제 보호소 아이의 두 번째 사진으로 등록) */
+  is_demo?: boolean;
+  /** 체험 정답: 이 공고 속 아이가 등록 사진의 주인공 */
+  demo_notice_id?: string | null;
+}
+
+/** 체험용 예시: 지금 보호소에 있는 실제 아이 */
+export interface DemoCase {
+  id: string;
+  species: Species;
+  kind_name: string | null;
+  color: string | null;
+  sex: Sex;
+  sido: string;
+  sigungu: string | null;
+  /** 구조 하루 전 */
+  lost_date: string;
+  rescued_date: string;
+  place: string | null;
+  /** 보호자 사진 역할 (공고의 두 번째 사진) */
+  photo_owner: string;
+  /** 공고 사진 (정답) */
+  photo_found: string;
 }
 
 export interface ReportView {
@@ -63,7 +86,7 @@ export interface ReportView {
   matches: Match[];
   /** POST 응답에만 있어요 */
   token?: string;
-  stats?: { poolSize: number; total: number; added: number };
+  stats?: { poolSize: number; total: number; added: number; ai?: { tried: number; ok: number; cached?: number; error: string | null } };
 }
 
 export interface NewReport {
@@ -75,8 +98,10 @@ export interface NewReport {
   color?: string;
   breed?: string;
   memo?: string;
-  /** data:image/jpeg;base64,... */
+  /** data:image/jpeg;base64,... (체험이면 비워요) */
   photo?: string;
+  /** 체험: 고른 예시 공고 번호. 사진은 서버가 그 공고에서 가져와요 */
+  demo_notice_id?: string;
 }
 
 export interface NewSighting {
@@ -87,7 +112,10 @@ export interface NewSighting {
   place?: string;
   color?: string;
   memo?: string;
-  photo: string;
+  photo?: string;
+  demo_notice_id?: string;
+  /** 체험: 이 기기에서 만든 체험 등록과 비교 */
+  for_report?: string;
 }
 
 export interface SightingResult {
@@ -97,6 +125,8 @@ export interface SightingResult {
   compared: number;
   /** 닮은 아이로 알린 수 */
   matched: number;
+  demo?: boolean;
+  for_report?: string | null;
 }
 
 const FN = `${SUPABASE_URL}/functions/v1/report`;
@@ -139,6 +169,13 @@ export function createReport(input: NewReport) {
 export function getReport(id: string, token: string) {
   const q = new URLSearchParams({ id, token });
   return call<ReportView>(`${FN}?${q}`, { method: 'GET' });
+}
+
+/** include: ① 체험에서 고른 아이 — 예시 목록이 바뀌어도 맨 앞에 넣어 줘요 */
+export function getDemoCases(include?: string | null) {
+  const q = new URLSearchParams({ type: 'demo' });
+  if (include) q.set('include', include);
+  return call<{ cases: DemoCase[] }>(`${FN}?${q}`, { method: 'GET' });
 }
 
 export function createSighting(input: NewSighting) {

@@ -21,6 +21,22 @@ export const SEX_OPTIONS: { value: Sex; label: string }[] = [
 // 서버가 '흰', '백색', '화이트'처럼 다른 표기도 같은 색으로 묶어 비교해요.
 export const COLOR_OPTIONS = ['흰색', '검정', '갈색', '크림', '회색', '노랑(치즈)', '삼색', '고등어'] as const;
 
+// 공고의 털색 글자('갈색&검정&흰색', '치즈(노랑)' 등)를 화면의 털색 칩으로 바꾸기
+const COLOR_PATTERNS: [RegExp, (typeof COLOR_OPTIONS)[number]][] = [
+  [/흰|하얀|백색|화이트|아이보리/, '흰색'],
+  [/검|흑|블랙|까만/, '검정'],
+  [/갈|브라운|초코|밤색|레드/, '갈색'],
+  [/크림|베이지|살구/, '크림'],
+  [/회|그레이|은색|실버|블루/, '회색'],
+  [/노랑|황|누렁|치즈|오렌지|주황/, '노랑(치즈)'],
+  [/삼색|카오스/, '삼색'],
+  [/고등어|태비|줄무늬/, '고등어'],
+];
+export function colorsFromText(text: string | null | undefined): string[] {
+  if (!text) return [];
+  return COLOR_PATTERNS.filter(([re]) => re.test(text)).map(([, c]) => c).slice(0, 3);
+}
+
 export const BREED_SUGGESTIONS: Record<Species, string[]> = {
   dog: [
     '믹스견', '말티즈', '푸들', '포메라니안', '시츄', '비숑 프리제', '진도견', '진도견 믹스', '치와와',

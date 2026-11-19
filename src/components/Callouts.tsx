@@ -29,7 +29,8 @@ export function Callout({
 export function RuleNotice() {
   return (
     <Callout tone="info">
-      공고에 적힌 정보(털색·품종·성별·장소·날짜·특징)로 순위를 매겼어요. 사진이 있는 후보는 AI가 사진끼리도 비교해요.
+      이번 결과는 공고에 적힌 정보(털색·품종·성별·장소·날짜·특징)로 순위를 매겼어요. AI 사진 비교는 사진이 있는 상위
+      후보에만 하는데, 이번에는 이뤄지지 않았어요.
     </Callout>
   );
 }

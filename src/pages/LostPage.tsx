@@ -1,15 +1,17 @@
 import { useId, useRef, useState, type FormEvent } from 'react';
-import { createReport, type Sex, type Species } from '../api';
+import { createReport, type DemoCase, type Sex, type Species } from '../api';
 import { BackLink } from '../components/Chrome';
+import { DemoPanel } from '../components/Demo';
 import { Chips, Field, MultiChips, SidoSigungu } from '../components/Form';
 import { PhotoPicker, type Photo } from '../components/PhotoPicker';
-import { BREED_SUGGESTIONS, COLOR_OPTIONS, SEX_OPTIONS, SIDO_LIST, SPECIES_OPTIONS } from '../constants';
+import { BREED_SUGGESTIONS, COLOR_OPTIONS, SEX_OPTIONS, SIDO_LIST, SPECIES_OPTIONS, colorsFromText } from '../constants';
 import { todayKST } from '../lib/format';
 import { go, reportPath } from '../lib/router';
 import { handOffReport, rememberReport } from '../lib/store';
 
-export function LostPage() {
+export function LostPage({ demoStart = false }: { demoStart?: boolean }) {
   const id = useId();
+  const [demo, setDemo] = useState<DemoCase | null>(null);
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [species, setSpecies] = useState<Species>('dog');
   const [lostDate, setLostDate] = useState(todayKST);
@@ -28,10 +30,38 @@ export function LostPage() {
     requestAnimationFrame(() => errRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
   };
 
+  // 체험 예시를 고르면 그 아이의 공고 정보로 칸을 채워요 (특징 글은 비워 둬서 사진·기본 정보로만 찾게)
+  const pickDemo = (c: DemoCase) => {
+    setDemo(c);
+    setPhoto({ dataUrl: c.photo_owner, caption: '체험용 · 공고 속 아이의 다른 사진' });
+    setSpecies(c.species);
+    setLostDate(c.lost_date);
+    setSido(c.sido);
+    setSigungu(c.sigungu ?? '');
+    setSex(c.sex);
+    setColors(colorsFromText(c.color));
+    setBreed(c.kind_name ?? '');
+    setMemo('');
+    setError(null);
+  };
+  // 체험 취소: 예시로 채운 칸도 처음 상태로
+  const clearDemo = () => {
+    setDemo(null);
+    setPhoto(null);
+    setSpecies('dog');
+    setLostDate(todayKST());
+    setSido(SIDO_LIST[0]);
+    setSigungu('');
+    setSex('Q');
+    setColors([]);
+    setBreed('');
+    setMemo('');
+  };
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (busy) return;
-    if (!photo) return fail('사진을 한 장 골라 주세요.');
+    if (!photo && !demo) return fail('사진을 한 장 골라 주세요. 사진이 없으면 위의 체험용 예시를 골라 보세요.');
     if (!lostDate) return fail('잃어버린 날을 골라 주세요.');
     if (lostDate > todayKST()) return fail('잃어버린 날이 오늘보다 뒤예요. 날짜를 다시 확인해 주세요.');
 
@@ -47,7 +77,7 @@ export function LostPage() {
         color: colors.join(', ') || undefined,
         breed: breed.trim() || undefined,
         memo: memo.trim() || undefined,
-        photo: photo.dataUrl,
+        ...(demo ? { demo_notice_id: demo.id } : { photo: photo?.dataUrl }),
       });
       rememberReport(view, view.token);
       handOffReport(view);
@@ -66,6 +96,8 @@ export function LostPage() {
         <p>입력은 1분이면 돼요. 적을수록 후보가 넓어지고, 많이 적을수록 정확해져요.</p>
       </div>
 
+      <DemoPanel purpose="lost" autoOpen={demoStart} picked={demo} onPick={pickDemo} onClear={clearDemo} />
+
       {error && (
         <div ref={errRef} className="form-error" role="alert">
           {error}
@@ -76,9 +108,11 @@ export function LostPage() {
         <Field label="사진">
           <PhotoPicker
             value={photo}
-            onChange={setPhoto}
-            species={species}
-            color={colors[0]}
+            onChange={(p) => {
+              // 내 사진으로 바꾸거나 지우면 체험에서 빠져요
+              setPhoto(p);
+              setDemo(null);
+            }}
             invalid={!!error && !photo}
           />
         </Field>
@@ -144,7 +178,7 @@ export function LostPage() {
           <button type="submit" className="btn btn--primary" disabled={busy}>
             {busy ? (
               <>
-                <span className="spinner" aria-hidden="true" /> 공고와 사진을 비교하는 중… (최대 30초)
+                <span className="spinner" aria-hidden="true" /> 공고와 사진을 비교하는 중… (보통 10~40초)
               </>
             ) : (
               '닮은 아이 찾기'

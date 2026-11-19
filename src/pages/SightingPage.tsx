@@ -1,16 +1,20 @@
 import { useId, useRef, useState, type FormEvent } from 'react';
-import { createSighting, type Species } from '../api';
+import { createSighting, type DemoCase, type Species } from '../api';
 import { Callout } from '../components/Callouts';
 import { BackLink } from '../components/Chrome';
+import { DemoPanel } from '../components/Demo';
 import { Chips, Field, MultiChips, SidoSigungu } from '../components/Form';
 import { PhotoPicker, type Photo } from '../components/PhotoPicker';
-import { COLOR_OPTIONS, SIDO_LIST, SPECIES_OPTIONS } from '../constants';
+import { COLOR_OPTIONS, SIDO_LIST, SPECIES_OPTIONS, colorsFromText } from '../constants';
 import { todayKST } from '../lib/format';
 import { go } from '../lib/router';
-import { handOffSighting } from '../lib/store';
+import { demoReportFor, handOffSighting, latestDemoReport } from '../lib/store';
 
-export function SightingPage() {
+export function SightingPage({ demoStart = false }: { demoStart?: boolean }) {
   const id = useId();
+  // 이 기기에서 방금 만든 체험 등록 (있으면 그 아이를 예시 맨 앞에 보여 주고, 제보를 그 등록과 비교해요)
+  const [demoReport] = useState(latestDemoReport);
+  const [demo, setDemo] = useState<DemoCase | null>(null);
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [species, setSpecies] = useState<Species>('dog');
   const [seenDate, setSeenDate] = useState(todayKST);
@@ -28,10 +32,34 @@ export function SightingPage() {
     requestAnimationFrame(() => errRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
   };
 
+  const pickDemo = (c: DemoCase) => {
+    setDemo(c);
+    setPhoto({ dataUrl: c.photo_found, caption: '체험용 · 보호소 공고 사진' });
+    setSpecies(c.species);
+    setSeenDate(todayKST());
+    setSido(c.sido);
+    setSigungu(c.sigungu ?? '');
+    setPlace(c.place ?? '');
+    setColors(colorsFromText(c.color));
+    setMemo('');
+    setError(null);
+  };
+  const clearDemo = () => {
+    setDemo(null);
+    setPhoto(null);
+    setSpecies('dog');
+    setSeenDate(todayKST());
+    setSido(SIDO_LIST[0]);
+    setSigungu('');
+    setPlace('');
+    setColors([]);
+    setMemo('');
+  };
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (busy) return;
-    if (!photo) return fail('사진을 한 장 올려 주세요. 멀리서 찍은 사진도 괜찮아요.');
+    if (!photo && !demo) return fail('사진을 한 장 올려 주세요. 사진이 없으면 위의 체험용 예시를 골라 보세요.');
     if (!seenDate) return fail('본 날을 골라 주세요.');
     if (seenDate > todayKST()) return fail('본 날이 오늘보다 뒤예요. 날짜를 다시 확인해 주세요.');
 
@@ -46,7 +74,13 @@ export function SightingPage() {
         place: place.trim() || undefined,
         color: colors.join(', ') || undefined,
         memo: memo.trim() || undefined,
-        photo: photo.dataUrl,
+        ...(demo
+          ? (() => {
+              // 같은 아이로 만든 이 기기의 체험 등록에 이어 붙여요
+              const target = demoReportFor(demo.id);
+              return { demo_notice_id: demo.id, ...(target ? { for_report: target.id } : {}) };
+            })()
+          : { photo: photo?.dataUrl }),
       });
       handOffSighting(res);
       go('/seen/thanks');
@@ -64,6 +98,15 @@ export function SightingPage() {
         <p>찾고 있는 보호자들과 바로 비교해요. 보호자에게는 사진·장소·날짜만 보여 줘요.</p>
       </div>
 
+      <DemoPanel
+        purpose="seen"
+        autoOpen={demoStart}
+        picked={demo}
+        onPick={pickDemo}
+        onClear={clearDemo}
+        highlightId={demoReport?.demo_notice_id}
+      />
+
       {error && (
         <div ref={errRef} className="form-error" role="alert">
           {error}
@@ -74,9 +117,10 @@ export function SightingPage() {
         <Field label="사진 (멀리서 찍어도 괜찮아요)">
           <PhotoPicker
             value={photo}
-            onChange={setPhoto}
-            species={species}
-            color={colors[0]}
+            onChange={(p) => {
+              setPhoto(p);
+              setDemo(null);
+            }}
             hint="흐려도 괜찮아요. 털색과 모습이 보이면 돼요"
             invalid={!!error && !photo}
           />

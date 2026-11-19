@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { DemoTag } from '../components/Demo';
 import { PetArt } from '../components/PetArt';
 import { monthDay, speciesLabel } from '../lib/format';
 import { reportPath } from '../lib/router';
@@ -52,6 +53,32 @@ export function HomePage() {
         </a>
       </nav>
 
+      <section className="demo demo--home" aria-label="체험해 보기">
+        <div className="demo__head">
+          <DemoTag />
+          <b>사진 없이 바로 체험해 보기</b>
+        </div>
+        <p className="demo__body">
+          지금 보호소에 있는 <b>실제 아이의 사진</b>으로 등록부터 AI 사진 비교까지 해 볼 수 있어요. 같은 아이의 다른 사진으로
+          등록하고, 전국 공고 중에서 그 아이를 찾아내는지 확인해 보세요.
+        </p>
+        <ol className="demo__steps">
+          <li>
+            <a href="#/lost/demo" className="btn btn--demo btn--sm">
+              ① 잃어버렸어요 체험
+            </a>
+            <span>예시 아이를 골라 등록하면 🎯 정답 공고가 몇 위인지 보여 줘요</span>
+          </li>
+          <li>
+            <a href="#/seen/demo" className="btn btn--ghost btn--sm">
+              ② 길에서 봤어요 체험
+            </a>
+            <span>같은 아이를 제보하면 ①의 등록에 목격 후보로 연결돼요</span>
+          </li>
+        </ol>
+        <p className="demo__fine">체험 기록은 실제 보호자에게 보이지 않고, 보호소로 전화도 걸리지 않아요.</p>
+      </section>
+
       {saved.length > 0 && (
         <section>
           <h2 className="section-title">내 등록</h2>
@@ -63,6 +90,7 @@ export function HomePage() {
                 </span>
                 <a className="saved__link" href={`#${reportPath(s.id, s.token)}`}>
                   <b>
+                    {s.is_demo && <DemoTag />}
                     {speciesLabel(s.species)}
                     {s.label ? ` · ${s.label}` : ''}
                   </b>
